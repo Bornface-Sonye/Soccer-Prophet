@@ -1,0 +1,41 @@
+{% extends 'base_dashboard.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Fixtures & Predictions for {{ league.name }}</h4>
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Home Team</th>
+                <th>Away Team</th>
+                <th>1X2</th>
+                <th>Over/Under</th>
+                <th>GG</th>
+                <th>Handicap</th>
+                <th>Correct Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in fixtures_with_predictions %}
+            <tr>
+                <td>{{ item.fixture.date }}</td>
+                <td>{{ item.fixture.time }}</td>
+                <td>{{ item.fixture.home_team }}</td>
+                <td>{{ item.fixture.away_team }}</td>
+                <td>{{ item.prediction_1x2 }}</td>
+                <td>{{ item.prediction_over_under }}</td>
+                <td>{{ item.prediction_gg }}</td>
+                <td>{{ item.prediction_handicap }}</td>
+                <td>{{ item.prediction_correct_score }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center">No fixtures available</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
