@@ -26,23 +26,35 @@
                 </a>
             </li>
 
-            <!-- Dynamically load countries -->
-            {% for country in countries %}
-            <li>
-                <a href="#country-{{ country.id }}" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
-                    <i class="mdi mdi-plus"></i> {{ country.name }}
+            <!-- Updated Countries Section -->
+            <li class="mb-3">
+                <a href="#countriesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                    <i class="mdi mdi-flag" style="font-size: 1.5em; margin-right: 8px;"></i>
+                    <span class="menu-text">Countries</span>
                 </a>
-                <ul class="collapse list-unstyled ps-3" id="country-{{ country.id }}">
-                    {% for league in country.leagues.all %}
+                <ul class="collapse list-unstyled ps-3 submenu" id="countriesSubmenu">
+                    {% for country in countries %}
                     <li>
-                        <a href="#" class="load-link" data-url="{% url 'league_fixtures' league.id %}">
-                            <i class="mdi mdi-soccer"></i> {{ league.name }}
+                        <a href="#leaguesSubmenu{{ country.id }}" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                            <i class="mdi mdi-soccer" style="font-size: 1.2em; margin-right: 5px;"></i>{{ country.name }}
                         </a>
+                        <ul class="collapse list-unstyled ps-4 submenu" id="leaguesSubmenu{{ country.id }}">
+                            {% for league in country.league_set.all %}
+                            <li>
+                                <a href="#" class="load-link" data-url="{% url 'league-fixtures' league.id %}">
+                                    <i class="mdi mdi-arrow-right-bold" style="font-size: 1em; margin-right: 4px;"></i>{{ league.name }}
+                                </a>
+                            </li>
+                            {% empty %}
+                            <li><i>No leagues</i></li>
+                            {% endfor %}
+                        </ul>
                     </li>
+                    {% empty %}
+                    <li><i>No countries</i></li>
                     {% endfor %}
                 </ul>
             </li>
-            {% endfor %}
 
             <!-- Logout -->
             <li class="mt-4">
