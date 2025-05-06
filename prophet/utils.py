@@ -1,6 +1,4 @@
-# utils.py
-
-from pgmpy.models import BayesianModel
+from pgmpy.models import BayesianNetwork
 from pgmpy.inference import VariableElimination
 from pgmpy.factors.discrete import TabularCPD
 
@@ -14,27 +12,31 @@ class PredictionEngine:
         self.model = self.build_model()
 
     def build_model(self):
-        model = BayesianModel([
+        model = BayesianNetwork([
             ('HomeForm', 'MatchResult'),
             ('AwayForm', 'MatchResult'),
             ('HomeInjuries', 'MatchResult'),
             ('AwayInjuries', 'MatchResult'),
             ('H2HResult', 'MatchResult'),
             ('ExternalPrediction', 'MatchResult'),
-            # for over/under
+            # Over/Under
             ('HomeForm', 'OverUnderResult'),
             ('AwayForm', 'OverUnderResult'),
             ('H2HResult', 'OverUnderResult'),
-            # for GG
+            # GG
             ('HomeForm', 'GGResult'),
             ('AwayForm', 'GGResult'),
             ('H2HResult', 'GGResult'),
-            # for handicap
+            # Handicap
             ('HomeForm', 'HandicapResult'),
             ('AwayForm', 'HandicapResult'),
+            # ✅ CorrectScore dependencies
+            ('MatchResult', 'CorrectScore'),
+            ('OverUnderResult', 'CorrectScore'),
+            ('GGResult', 'CorrectScore'),
         ])
 
-        # Example CPDs (can be expanded based on data)
+        # CPDs
         cpd_homeform = TabularCPD(variable='HomeForm', variable_card=2, values=[[0.7], [0.3]])
         cpd_awayform = TabularCPD(variable='AwayForm', variable_card=2, values=[[0.4], [0.6]])
         cpd_homeinj = TabularCPD(variable='HomeInjuries', variable_card=2, values=[[0.9], [0.1]])
@@ -42,32 +44,52 @@ class PredictionEngine:
         cpd_h2h = TabularCPD(variable='H2HResult', variable_card=2, values=[[0.6], [0.4]])
         cpd_extpred = TabularCPD(variable='ExternalPrediction', variable_card=3, values=[[0.5], [0.3], [0.2]])
 
-        # MatchResult
-        cpd_matchresult = TabularCPD(variable='MatchResult', variable_card=3,
-                                     values=[[0.5], [0.3], [0.2]],
-                                     evidence=['HomeForm', 'AwayForm', 'HomeInjuries', 'AwayInjuries', 'H2HResult', 'ExternalPrediction'],
-                                     evidence_card=[2,2,2,2,2,3])
+        cpd_matchresult = TabularCPD(
+            variable='MatchResult', variable_card=3,
+            values=[[0.5], [0.3], [0.2]],
+            evidence=['HomeForm', 'AwayForm', 'HomeInjuries', 'AwayInjuries', 'H2HResult', 'ExternalPrediction'],
+            evidence_card=[2, 2, 2, 2, 2, 3]
+        )
 
-        # OverUnderResult
-        cpd_ou = TabularCPD(variable='OverUnderResult', variable_card=2,
-                            values=[[0.6], [0.4]],
-                            evidence=['HomeForm', 'AwayForm', 'H2HResult'],
-                            evidence_card=[2,2,2])
+        cpd_ou = TabularCPD(
+            variable='OverUnderResult', variable_card=2,
+            values=[[0.6], [0.4]],
+            evidence=['HomeForm', 'AwayForm', 'H2HResult'],
+            evidence_card=[2, 2, 2]
+        )
 
-        # GGResult
-        cpd_gg = TabularCPD(variable='GGResult', variable_card=2,
-                            values=[[0.55], [0.45]],
-                            evidence=['HomeForm', 'AwayForm', 'H2HResult'],
-                            evidence_card=[2,2,2])
+        cpd_gg = TabularCPD(
+            variable='GGResult', variable_card=2,
+            values=[[0.55], [0.45]],
+            evidence=['HomeForm', 'AwayForm', 'H2HResult'],
+            evidence_card=[2, 2, 2]
+        )
 
-        # HandicapResult
-        cpd_handicap = TabularCPD(variable='HandicapResult', variable_card=3,
-                                  values=[[0.4], [0.3], [0.3]],
-                                  evidence=['HomeForm', 'AwayForm'],
-                                  evidence_card=[2,2])
+        cpd_handicap = TabularCPD(
+            variable='HandicapResult', variable_card=3,
+            values=[[0.4], [0.3], [0.3]],
+            evidence=['HomeForm', 'AwayForm'],
+            evidence_card=[2, 2]
+        )
 
-        model.add_cpds(cpd_homeform, cpd_awayform, cpd_homeinj, cpd_awayinj, cpd_h2h, cpd_extpred,
-                       cpd_matchresult, cpd_ou, cpd_gg, cpd_handicap)
+        # ✅ CorrectScore CPD (example with 4 possible scores)
+        cpd_correctscore = TabularCPD(
+            variable='CorrectScore', variable_card=4,
+            values=[
+                [0.4],  # '1-0'
+                [0.3],  # '2-1'
+                [0.2],  # '1-1'
+                [0.1],  # '0-2'
+            ],
+            evidence=['MatchResult', 'OverUnderResult', 'GGResult'],
+            evidence_card=[3, 2, 2]
+        )
+
+        model.add_cpds(
+            cpd_homeform, cpd_awayform, cpd_homeinj, cpd_awayinj, cpd_h2h, cpd_extpred,
+            cpd_matchresult, cpd_ou, cpd_gg, cpd_handicap,
+            cpd_correctscore
+        )
 
         model.check_model()
         return model
@@ -93,7 +115,7 @@ class PredictionEngine:
 
     def calculate_h2h(self):
         h2h = self.fixture.head_to_heads.order_by('-match_date')[:5]
-        home_wins = [h for h in h2h if h.result.split('-')[0] > h.result.split('-')[1]]
+        home_wins = [h for h in h2h if int(h.result.split('-')[0]) > int(h.result.split('-')[1])]
         return 0 if len(home_wins) >= 3 else 1
 
     def calculate_external_pred(self):
@@ -124,5 +146,18 @@ class PredictionEngine:
         return {0: 'Home Handicap Win', 1: 'Draw Handicap', 2: 'Away Handicap Win'}[result['HandicapResult']]
 
     def predict_correct_score(self):
-        # Dummy → can integrate ML or rule-based later
-        return "2-1"
+        infer = VariableElimination(self.model)
+        # Include evidence for parent nodes
+        evidence = self.get_evidence()
+
+        # Also infer parent nodes since CorrectScore depends on them
+        # First predict MatchResult, OverUnderResult, GGResult
+        intermediate_infer = infer.map_query(['MatchResult', 'OverUnderResult', 'GGResult'], evidence=evidence)
+        
+        # Combine parent predictions into evidence for CorrectScore
+        evidence.update(intermediate_infer)
+
+        result = infer.map_query(['CorrectScore'], evidence=evidence)
+
+        score_mapping = {0: '1-0', 1: '2-1', 2: '1-1', 3: '0-2'}
+        return score_mapping[result['CorrectScore']]
